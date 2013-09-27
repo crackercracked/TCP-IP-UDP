@@ -27,6 +27,9 @@
 #define STDIN               0
 #define STDOUT              1
 
+#define MIN_ARGUMENTS       2
+#define ERROR               -1
+
 #define UDP_FRAME_SIZE      1400
 #define IP_MAX_PACKET_SIZE  64000
 
@@ -37,7 +40,10 @@
 // TODO 
 // static (hash table) s_forwardingTable;
 static pthread_mutex_t g_forwardingTableMutex = PTHREAD_MUTEX_INITIALIZER;
-// static fd_set g_inputInterfaces; // all input UDP sockets and STDIN
+
+static fd_set g_inputInterfaces;            // All input UDP sockets and STDIN
+static g_highestInputInterface = 0;         // Highest file descriptor in g_inputInterfaces
+
 // list of all neighbors (identified by VIP address??)
 
 // Error Printing
@@ -70,18 +76,55 @@ void setupForwardingTableAndSockets(list_t* list)
 }
 
 
+void handleUserInput(void)
+{
+    // Valid commands:
+    // - interfaces
+    // - routes
+    // - down (integer)
+    // - up (integer)
+    // - send (VIP) (protocol) (data)
+    // - quit
+    
+    
+
+}
+
+
 void handleForwardingAndUserInput(void)
 {
-    // Copy file descriptor set & highest fd
+    int interface = 0;
+    int readyInterfaces = 0;
+    fd_set inputInterfacesCopy;         // Stores read copy of g_inputInterfaces
     
-    // select(); // read ready file descriptors
     
-    // for all sockets
-    // if (file descriptor == STDIN) {
-    //  handleUserInput();
-    // } else {
-    //  receiveMessage();
-    // }
+    while (!g_quit) {
+    
+        inputInterfacesCopy = g_inputInterfaces;
+        
+        // Only care about read file descriptors
+        readyInterfaces = select(g_highestInputInterface+1, &inputInterfacesCopy, NULL, NULL, NULL);
+        if (readyInterfaces == ERROR) {
+            perror("select");
+            exit(-1);
+        }
+        
+        for (interface = 0; interface < g_highestInputInterface+1; interface++) {
+        
+            if (FD_ISSET(interface, &inputInterfacesCopy)) {
+            
+                if (interface == STDIN) {
+                    handleUserInput();
+                } else {
+                    // handle forwarding message
+                    //receiveMessage();
+                }
+
+            } // end if FD_ISSET()
+        
+        } // end for
+    
+    } // end while
     
 }
 
@@ -92,29 +135,35 @@ void handleForwardingAndUserInput(void)
 //=================================================================================================
 int main(int argc, char** argv)
 {
+    list_t* list;
+    
     // Executable: ./node file.lnx  [2 args, second is .lnx file]
-    // check for .lnx file, print usage statement if not enough args passed
+    if (argc < MIN_ARGUMENTS) {
+        printf("ERROR: Not enough arguments passed.\nUsage: ./node file.lnx\n");
+        return -1; // Error
+    }
+    
+    // Clear file descriptor set g_inputInterfaces
+    FD_ZERO(&g_inputInterfaces);
     
     // Parse .lnx file
-    // list_t* list = parse_links(char *filename);
+    list = parse_links(argv[1]);
     
     // Create Forwarding Table (memory allocation if needed)
     // Create all UDP connections
     // and store sockets in Forwarding Table
-    //setupForwardingTableAndSockets(list);
+    setupForwardingTableAndSockets(list);
     
-    // add STDIN to g_inputInterfaces;
+    // Add STDIN to g_inputInterfaces
+    FD_SET(STDIN, &g_inputInterfaces);
     
     // Routing Stuff (RIP)
     
     // spawn Interface Update Thread
     //pthread_create(&threadID, NULL, thread_function, NULL);
     
-    while (!g_quit) {
-    
-        // Handle Forwarding and User Input
-        handleForwardingAndUserInput();
-    }
+    // Handle Forwarding and User Input
+    handleForwardingAndUserInput();
     
     // Free memory, destroy list of links
 
