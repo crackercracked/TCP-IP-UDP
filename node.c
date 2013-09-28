@@ -28,15 +28,8 @@
 //      DEFINITIONS AND MACROS
 //=================================================================================================
 
-#define STDIN               0
-#define STDOUT              1
-
-#define TRUE                1
-#define FALSE               0
-
 #define MIN_ARGUMENTS       2
 
-#define UDP_FRAME_SIZE      1400
 #define IP_MAX_PACKET_SIZE  64000
 
 #define USER_MAX_CMD_SIZE   15
@@ -46,8 +39,9 @@
 //=================================================================================================
 
 // TODO 
-// static (hash table) s_forwarding_table;
-static pthread_mutex_t g_forwarding_table_mutex = PTHREAD_MUTEX_INITIALIZER;
+static htable* s_routing_table;
+static pthread_mutex_t g_routing_table_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 
 static fd_set g_input_interfaces;            // All input UDP sockets and STDIN
 static int g_highest_input_interface = 0;    // Highest file descriptor in g_input_interfaces
@@ -68,24 +62,16 @@ static int g_quit = FALSE;
 
 void sendIPPacket(void) // add parameter socket or VIP address?
 {
-    // Send up to 64k bytes in 1400 byte increments
+    // lock()
+    // sendPacket()
+    // unlock()
     
 }
 
 void receiveIPPacket(int inputSocket) // socket??
 {
-    // Read up to 64k bytes in 1400 byte increments
+    // receivePacket()
 }
-
-
-void setupForwardingTableAndSockets(list_t* list)
-{
-    // Create socket for each inferface (2 interfaces per link_t)
-    // Add socket with VIP to Forwarding Table
-    // Also add socket in a global file descriptor set (for select())
-    
-}
-
 
 
 void handleUserInput(void)
@@ -196,7 +182,6 @@ void handleForwardingAndUserInput(void)
     } // end while
     
 }
-
 
 
 //=================================================================================================

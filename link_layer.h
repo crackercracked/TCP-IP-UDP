@@ -1,5 +1,5 @@
-#ifndef _IP_LIB_H_
-#define _IP_LIB_H_
+#ifndef _LINK_LAYER_H_
+#define _LINK_LAYER_H_
 
 //================================================================================================= 
 //      Author: Brett Decker and Xinwei Liu
@@ -7,38 +7,20 @@
 //      INCLUDE FILES
 //=================================================================================================
 
-#include "util/list.h"
-
 //=================================================================================================
 //      DEFINITIONS AND MACROS
 //=================================================================================================
-
-#define STDIN               0
-#define STDOUT              1
-
-#define TRUE                1
-#define FALSE               0
-
-#define VIP_ADDRESS_SIZE    25
-
-#define ERROR               -1
-
-
-#define MASK_BYTE1(value)   (((value) & 0xFF000000) >> 24)
-#define MASK_BYTE2(value)   (((value) & 0x00FF0000) >> 16)
-#define MASK_BYTE3(value)   (((value) & 0x0000FF00) >> 8)
-#define MASK_BYTE4(value)    ((value) & 0x000000FF)
 
 //=================================================================================================
 //      PUBLIC FUNCTION DECLARATIONS
 //=================================================================================================
 
-int convertVIPStringToInt(char vip_address[VIP_ADDRESS_SIZE]);
-void printInterfaces(list_t* interfaces_list);
-
+void sendPacket(void);
+void receivePacket(void);
+void setupForwardingTableAndSockets(list_t* list);
 
 //=================================================================================================
 //      END OF FILE
 //=================================================================================================
 
-#endif // _IP_LIB_H_
+#endif // _LINK_LAYER_H_
