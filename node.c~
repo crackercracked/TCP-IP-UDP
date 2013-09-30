@@ -8,8 +8,6 @@
 
 #include "ip_lib.h"
 #include "link_layer.h"
-
-#include <glib.h>
 /*
 #include <pthread.h>
 

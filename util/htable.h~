@@ -16,7 +16,7 @@ typedef struct htable {
 } htable_t;
 
 typedef struct htable_node {
-	list_t hn_link;			/* link */
+	list_link_t hn_link;			/* link */
 	unsigned int hn_id;				        /* hash id */
 	void *hn_data;					/* data */
 } htable_node_t;
