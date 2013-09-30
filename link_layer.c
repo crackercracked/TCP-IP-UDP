@@ -74,16 +74,48 @@ void printReadFromWhichVIPTable()
 
 
 
-void sendPacket(void) // TODO determine parameters
+void sendPacket(char* payload, size_t payload_len, char* vip)
 {
-    // Send up to 64k bytes in 1400 byte increments
+   int* socket=g_hash_table_lookup(s_forwardingtable, (gpointer)vip);
+   struct sockaddr_in* dst_addr=g_hash_table_lookup(g_send_socket_addr_lookup, (gpointer)socket);
+   char ip_str[INET_ADDRSTRLEN];
+   inet_ntop(AF_INET, &(dst_addr->sin_addr), ip_str, INET_ADDRSTRLEN);
+   printf("physically sending packets to %s\n", ip_str);
+
+   char send_buffer[UDP_FRAME_SIZE];
+   size_t data_left=payload_len;
+   int start=0;
+   size_t send_size;
+   while(true){
+       if(data_left<=0) break;
+       memset(sendbuffer, 0, UDP_FRAME_SIZE);
+       if(data_left>UDP_FRAME_SIZE){
+           memcpy(send_buffer, payload+start, UDP_FRAME_SIZE);
+           start+=UDP_FRAME_SIZE;
+           data_left-=UDP_FRAME_SIZE;
+           send_size=UDP_FRAME_SIZE:
+       }
+       else{
+          memcpy(send_buffer, payload_start, data_left);
+          data_left=0;
+          send_size=data_left;
+       }
+       if(sendto(*socket, send_buffer, send_size, 0, NULL, 0)==-1){
+           fprintf(stderr, "cannot sending message because %s", strerror(errno));
+       }
+/*       if(sendto(*socket, send_buffer, send_size, 0, (struct sockaddr*)dst_addr, sizeof(*dst_addr))==-1){
+           fprintf(stderr, "cannot sending message because %s", strerror(errno));
+       }*/
+
+
+   }
     
 }
 
 
 
 
-void receivePacket(void) // TODO determine parameters
+void receivePacket(int socket, struct ip_packet) // receive ip packet?
 {
     // Read up to 64k bytes in 1400 byte increments
 }
