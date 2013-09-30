@@ -14,6 +14,7 @@
 
 #define UDP_FRAME_SIZE      1400
 
+
 //=================================================================================================
 //      GLOBAL VARIABLES
 //=================================================================================================
@@ -36,7 +37,7 @@ char* convertVIPInt2String(int addr_num)
 
 void printSocketVIPPair(gpointer socket_p, gpointer addr_p)
 {//for print read_look_up table
-    int socket=*(int*)socket_p;
+    int socket=*(int*)(socket_p);
     char* vip_str=addr_p;
     printf("socket=%d, vip=%s\n", socket, vip_str);
 
@@ -123,8 +124,9 @@ void setupForwardingTableAndSockets(list_t* list)
         }
         struct in_addr local_vip=current_link->local_virt_ip;
         char* local_vip_str=convertVIPInt2String(local_vip.s_addr);
-        int s=read_socket; printf("%d\n", s);
-        g_hash_table_insert(g_read_socket_addr_lookup, (gpointer)&s, (gpointer)local_vip_str);//needed for debug?
+        int* read_socket_p=g_malloc(sizeof(int));
+        *read_socket_p=read_socket;
+        g_hash_table_insert(g_read_socket_addr_lookup, (gpointer)read_socket_p, (gpointer)local_vip_str);//needed for debug?
 
 
 
@@ -138,7 +140,7 @@ void setupForwardingTableAndSockets(list_t* list)
            fprintf(stderr, "cannot find physical ip address for remote vip %s\n", vip_str);
            exit(1);
         }
-        uint32_t send_socket=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        int send_socket=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
         if(send_socket==-1){
            fprintf(stderr, "cannot create read socket because %s\n", strerror(errno));
            exit(1);
@@ -150,9 +152,10 @@ void setupForwardingTableAndSockets(list_t* list)
         }
         struct in_addr remote_vip=current_link->remote_virt_ip;
         char* remote_vip_str=convertVIPInt2String(remote_vip.s_addr);
-        int* socket_p=&send_socket;
-        g_hash_table_insert(g_send_socket_addr_lookup, (gpointer)(&send_socket), (gpointer)&remote_addr);
-        g_hash_table_insert(s_forwarding_table, (gpointer)remote_vip_str, (gpointer)socket_p);
+        int* send_socket_p=g_malloc(sizeof(int));
+        *send_socket_p=send_socket;
+        g_hash_table_insert(g_send_socket_addr_lookup, (gpointer)send_socket_p, (gpointer)&remote_addr);
+        g_hash_table_insert(s_forwarding_table, (gpointer)remote_vip_str, (gpointer)send_socket_p);
 
 
     }//end of for loop for looping linkedlist
