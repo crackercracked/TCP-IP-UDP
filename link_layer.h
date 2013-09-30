@@ -7,9 +7,9 @@
 //      INCLUDE FILES
 //=================================================================================================
 
-#include "headers.h"
+#include "utility.h"
 
-
+#include <glib.h>
 
 /*
 #include <stdio.h>
@@ -26,7 +26,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <assert.h>
-#include <glib.h>
+
 
 #include "util/parselinks.h"
 */
@@ -58,8 +58,8 @@ void printForwardingTable();
 
 
 
-void sendPacket(char* payload, size_t payload_len, char* vip);
-void receivePacket(int socket);
+void sendPacket(char* payload, size_t payload_len, int vip_address);
+void receivePacket(char* payload, size_t* payload_len, int max_capacity, int socket);
 void setupForwardingTableAndSockets(list_t* list);
 bool dnsLookUp(char* dnsName, uint16_t port, struct sockaddr_in* addr, size_t* addrlen);
 

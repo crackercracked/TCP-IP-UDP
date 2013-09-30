@@ -7,14 +7,12 @@
 //      INCLUDE FILES
 //=================================================================================================
 
-#include "headers.h"
+#include "utility.h"
+
 
 //=================================================================================================
 //      DEFINITIONS AND MACROS
 //=================================================================================================
-
-#define STDIN               0
-#define STDOUT              1
 
 //#define TRUE                1
 //#define FALSE               0
@@ -27,8 +25,6 @@
 #define IP_HEADER_BYTES         20
 #define IP_HEADER_WORDS         5
 #define IP_TTL_DEFAULT          16
-
-#define ERROR               -1
 
 
 //=================================================================================================
@@ -43,17 +39,19 @@ typedef enum ip_protocol {
 
 } ip_protocol_t;
 
-struct ip_full_packet {
+typedef struct {
 
-    struct ip ip_header;
+    ip_header_t ip_header;
     char ip_data[IP_MAX_PACKET_SIZE];
-};
+    
+} ip_packet_t;
 
 
 //=================================================================================================
 //      PUBLIC FUNCTION DECLARATIONS
 //=================================================================================================
 
+void initializeIPHeader(ip_header_t* ip_header);
 int convertVIPString2Int(char vip_address[VIP_ADDRESS_SIZE]);
 void printOutLinks(list_t* interfaces_list);
 void printInterfaces(list_t* interfaces_list);

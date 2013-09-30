@@ -10,6 +10,20 @@
 //      PUBLIC FUNCTIONS
 //=================================================================================================
 
+void initializeIPHeader(ip_header_t* ip_header)
+{
+    memset(ip_header, 0, IP_HEADER_BYTES);
+    
+    // Default settings of IP header
+    
+    ip_header->ip_v = IPv4;
+    ip_header->ip_hl = IP_HEADER_WORDS;
+    ip_header->ip_off = IP_DF; // defined in netinet/ip.h
+    ip_header->ip_ttl = IP_TTL_DEFAULT;
+    
+}
+
+
 int convertVIPString2Int(char vip_address[VIP_ADDRESS_SIZE]) 
 {
     int vip_integer, byte;

@@ -4,38 +4,13 @@
 //      INCLUDE FILES
 //=================================================================================================
 
-#include "headers.h"
+#include "utility.h"
 
 #include "ip_lib.h"
 #include "link_layer.h"
 
 #include <glib.h>
-/*
-#include <pthread.h>
 
-#define _BSD_SOURCE 1   // needed for struct ip to be recognized
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/select.h>
-#include <netdb.h>
-#include <netinet/in_systm.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <glib.h>
-
-#include "util/parselinks.h"
-#include "util/ipsum.h"
-#include "util/list.h"
-
-#include "ip_lib.h"
-#include "link_layer.h"
-*/
 //=================================================================================================
 //      DEFINITIONS AND MACROS
 //=================================================================================================
@@ -64,7 +39,7 @@ static list_t* g_interfaces_list = NULL;
 
 static int g_my_vip_address = 0;
 
-static struct ip* g_default_ip_header = NULL;
+static ip_header_t* g_default_ip_header = NULL;
 
 static int g_quit = FALSE;
 
@@ -79,86 +54,6 @@ static int FALSE_VALUE = FALSE;     // treat as const, do not change
 //=================================================================================================
 //      PRIVATE FUNCTIONS
 //=================================================================================================
-
-void initializeIPHeader(struct ip* ip_header)
-{
-    memset(ip_header, 0, IP_HEADER_BYTES);
-    
-    // Default settings of IP header
-    
-    ip_header.ip_v = IPv4;
-    ip_header.ip_hl = IP_HEADER_WORDS;
-    ip_header.ip_off = IP_DF; // defined in netinet/ip.h
-    ip_header.ip_ttl = IP_TTL_DEFAULT;
-    
-}
-
-
-int sendIPPacket(int to_vip_address, ip_protocol_t protocol, char* data, size_t data_len)
-{
-
-    int* value_ptr = NULL;
-    struct ip ip_header;
-    char buffer[IP_MAX_PACKET_SIZE];    
-    
-    
-    // Protect shared variable s_interfaces_operable
-    pthread_mutex_lock(&g_interfaces_operable_mutex);
-    value_ptr = (int*)(g_hash_table_lookup(s_interfaces_operable, &to_vip_address));
-    pthread_mutex_unlock(&g_interfaces_operable_mutex);
-    
-    // Check if link to node at vip_address is up
-    if ((*value_ptr) == TRUE) {
-    
-        memcpy(&ip_header, g_default_ip_header, IP_HEADER_BYTES);
-        
-        ip_header.ip_len = htonl(IP_HEADER_BYTES+data_len);
-        ip_header.ip_p = protocol;
-        ip_header.ip_src.s_addr = htonl(g_my_vip_address);
-        ip_header.ip_dst.s_addr = htonl(to_vip_address);
-        
-        ip_header.ip_sum = htons((unsigned short)ip_sum((char*)&ip_header, IP_HEADER_BYTES));
-        
-        memcpy(buffer, &ip_header, IP_HEADER_BYTES);
-        memcpy(&(buffer[IP_HEADER_BYTES]), data, data_len);
-    
-        // Protect shared function sendPacket()
-        pthread_mutex_lock(&g_send_packet_mutex);
-        //sendPacket(data, data_len+IP_HEADER_BYTES, vip_address);
-        pthread_mutex_unlock(&g_send_packet_mutex);
-        
-        return SENT_IP_PACKET;
-    }
-
-    return LINK_DOWN;
-}
-
-
-int receiveIPPacket(int vip_address, struct ip_full_packet* ip_packet)
-{
-    int in_data_len = 0;
-    char in_data[IP_MAX_PACKET_SIZE];
-    int* value_ptr = NULL;
-    
-    
-    // Protect shared variable s_interfaces_operable
-    pthread_mutex_lock(&g_interfaces_operable_mutex);
-    value_ptr = (int*)(g_hash_table_lookup(s_interfaces_operable, &vip_address));
-    pthread_mutex_unlock(&g_interfaces_operable_mutex);
-    
-    // Check if link to node at vip_address is up
-    if ((*value_ptr) == TRUE) {
-    
-        //receivePacket(in_data, &in_data_len, max_capacity, vip_address);
-        memcpy(ip_packet, in_data, IP_HEADER_BYTES);
-        
-
-        return RECEIVED_IP_PACKET;
-    }
-
-    return LINK_DOWN;
-}
-
 
 void setupInterfacesOperableTable(list_t* interfaces_list, GHashTable* interfaces_operable)
 {
@@ -176,6 +71,76 @@ void setupInterfacesOperableTable(list_t* interfaces_list, GHashTable* interface
 }
 
 
+void buildIPPacket(ip_packet_t* ip_packet, int to_vip_address, ip_protocol_t protocol, char* data, size_t data_len)
+{
+    memcpy(&(ip_packet->ip_header), g_default_ip_header, IP_HEADER_BYTES);
+        
+    ip_packet->ip_header.ip_len = htonl(IP_HEADER_BYTES+data_len);
+    ip_packet->ip_header.ip_p = protocol;
+    ip_packet->ip_header.ip_src = htonl(g_my_vip_address);
+    ip_packet->ip_header.ip_dst = htonl(to_vip_address);
+        
+    ip_packet->ip_header.ip_sum = htons((uint16_t)ip_sum((char*)&(ip_packet->ip_header), IP_HEADER_BYTES));
+        
+    memcpy(ip_packet->ip_data, data, data_len);
+}
+
+
+int sendIPPacket(ip_packet_t* ip_packet)
+{
+    int* value_ptr = NULL;
+    int* to_vip_addr_ptr = NULL;
+    
+    // Protect shared variable s_routing_table
+    pthread_mutex_lock(&g_routing_table_mutex);
+    to_vip_addr_ptr = (int*)(g_hash_table_lookup(s_routing_table, &(ip_packet->ip_header.ip_dst)));
+    pthread_mutex_unlock(&g_routing_table_mutex);
+    
+    // Protect shared variable s_interfaces_operable
+    pthread_mutex_lock(&g_interfaces_operable_mutex);
+    value_ptr = (int*)(g_hash_table_lookup(s_interfaces_operable, to_vip_addr_ptr));
+    pthread_mutex_unlock(&g_interfaces_operable_mutex);
+    
+    // Check if link to node at vip_address is up
+    if ((*value_ptr) == TRUE) {
+     
+        // Protect shared function sendPacket()
+        pthread_mutex_lock(&g_send_packet_mutex);
+        sendPacket((char*)ip_packet, ip_packet->ip_header.ip_len, (*to_vip_addr_ptr));
+        pthread_mutex_unlock(&g_send_packet_mutex);
+        
+        return SENT_IP_PACKET;
+    }
+
+    return LINK_DOWN;
+}
+
+
+int receiveIPPacket(ip_packet_t* ip_packet, int interface, int vip_address)
+{
+    size_t in_data_len = 0;
+    char in_data[IP_MAX_PACKET_SIZE];
+    int* value_ptr = NULL;
+    
+    
+    // Protect shared variable s_interfaces_operable
+    pthread_mutex_lock(&g_interfaces_operable_mutex);
+    value_ptr = (int*)(g_hash_table_lookup(s_interfaces_operable, &vip_address));
+    pthread_mutex_unlock(&g_interfaces_operable_mutex);
+    
+    // Check if link to node at vip_address is up
+    if ((*value_ptr) == TRUE) {
+    
+        receivePacket(in_data, &in_data_len, IP_MAX_PACKET_SIZE, interface);
+        memcpy(ip_packet, in_data, IP_HEADER_BYTES);
+        
+        return RECEIVED_IP_PACKET;
+    }
+
+    return LINK_DOWN;
+}
+
+
 void handleUserInput(void)
 {
     // Valid commands:
@@ -187,9 +152,6 @@ void handleUserInput(void)
     // - quit
     
     int interface = 0;
-    int protocol = 0;
-    int vip = 0;
-    char vip_address[VIP_ADDRESS_SIZE];
     char command[USER_MAX_CMD_SIZE];
     char buffer[IP_MAX_PACKET_SIZE+100]; // Needs to be >64k because "data" in "send" command could be that big
     char data[IP_MAX_PACKET_SIZE];
@@ -218,31 +180,43 @@ void handleUserInput(void)
         
         // Protect shared variable s_interfaces_operable
         pthread_mutex_lock(&g_interfaces_operable_mutex);
+        // TODO look up "vip_address" from "interface"
         //htable_put(s_interfaces_operable, vip_address, &FALSE_VALUE);
         pthread_mutex_unlock(&g_interfaces_operable_mutex);
         
     } else if (strncmp(buffer, "up", 2) == 0) {
         // Extract integer identifying interface
-        sscanf(buffer, "%*s %d", &interface);address
+        sscanf(buffer, "%*s %d", &interface);
         
         //printf("Interface: %d\n", interface);
         
         // Protect shared variable s_interfaces_operable
         pthread_mutex_lock(&g_interfaces_operable_mutex);
+        // TODO look up "vip_address" from "interface"
         //htable_put(s_interfaces_operable, vip_address, &TRUE_VALUE);
         pthread_mutex_unlock(&g_interfaces_operable_mutex);
         
     } else if (strncmp(buffer, "send", 4) == 0) {
+        int protocol = 0;
+        int vip_address = 0;
+        char vip[VIP_ADDRESS_SIZE];
+        ip_packet_t ip_packet;
+
+    
         // Extract string identifying VIP Address, integer for protocol, and string for data
-        sscanf(buffer, "%*s %s %d %s", vip_address, &protocol, data);
+        sscanf(buffer, "%*s %s %d %s", vip, &protocol, data);
         
-        vip = convertVIPStringToInt(vip_address);
+        vip_address = convertVIPString2Int(vip);
         
-        printf("VIP Address: %s; %d\n", vip_address, vip);
+        printf("VIP Address: %s; %d\n", vip, vip_address);
         printf("Protocol: %d\n", protocol);
-        printf("Data: %s, size: %d\n", data, (addressint)strlen(data));
+        printf("Data: %s, size: %d\n", data, (int)strlen(data));
         
-        sendIPPacket(vip, protocol, data, strlen(data));
+        buildIPPacket(&ip_packet, vip_address, protocol, data, strlen(data));
+        if (sendIPPacket(&ip_packet) == LINK_DOWN) {
+            printf("Dropping packet because link is down\n");
+        }
+        
         
     } else if (strncmp(buffer, "quit", 4) == 0) {
         g_quit = TRUE;
@@ -252,17 +226,30 @@ void handleUserInput(void)
 
 void handlePacketInput(int interface)
 {
-    
     int* vip_address_ptr = NULL;
+    ip_packet_t ip_packet;
+    uint16_t checksum = 0;
     
     
-    //vip_address_ptr = (int*)(g_hash_table_lookup(g_read_socket_addr_lookup, &interface);
-    if (receiveIPPacket((*vip_address_ptr), data, &data_len, IP_MAX_PACKET_SIZE) == LINK_DOWN) {
+    vip_address_ptr = (int*)(g_hash_table_lookup(g_read_socket_addr_lookup, &interface));
+    if (receiveIPPacket(&ip_packet, interface, (*vip_address_ptr)) == LINK_DOWN) {
         return; // Link is down, so do nothing
     }
     
-    // TODO process data
+    // Process IP Packet
+    checksum = htons((uint16_t)ip_sum((char*)&(ip_packet.ip_header), IP_HEADER_BYTES));
+    if (checksum != ip_packet.ip_header.ip_sum) {
+        printf("Dropping packet because of bad checksum\n");
+    }
     
+    if (ip_packet.ip_header.ip_dst == g_my_vip_address) {
+        // TODO send to correct handler
+        
+    } else { // Forward packet
+        if (sendIPPacket(&ip_packet) == LINK_DOWN) {
+            printf("Dropping packet because link is down\n");
+        }
+    }
 }
 
 

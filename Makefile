@@ -18,7 +18,7 @@ udp: link_layer.c $(OBJ)
 	
 
 node: node.c $(OBJ) link_layer.o
-	gcc $(CFLAGS) $(OBJ) node.c -o node $(LDFLAGS)
+	gcc $(CFLAGS) $(OBJ) link_layer.o $(HASHFLAG) node.c -o node $(LDFLAGS) $(HASHLIB)
 
 
 clean:

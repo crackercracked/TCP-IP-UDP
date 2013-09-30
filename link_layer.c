@@ -6,8 +6,6 @@
 
 #include "link_layer.h"
 
-#include <glib.h>
-
 #include <arpa/inet.h>
 #include <errno.h>
 #include <assert.h>
@@ -24,11 +22,8 @@
 //      GLOBAL VARIABLES
 //=================================================================================================
 
-static GHashTable* s_forwarding_table;//key is vip, value is socket
+static GHashTable* g_forwarding_table;//key is vip, value is socket
 static GHashTable* g_send_socket_addr_lookup;//send approach 2, not using bind, key is socket, value is real ip 
-
-static pthread_mutex_t g_forwarding_table_mutex = PTHREAD_MUTEX_INITIALIZER; // do we need this?
-
 
 // Mutex to protect s_routing_table
 pthread_mutex_t g_routing_table_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -73,7 +68,7 @@ void printForwardingTable()
 {
     printf("---udp forwarding table(vip, send socket)---"); 
     printf("\n"); 
-    g_hash_table_foreach(s_forwarding_table, (GHFunc)printVIPSocketPair, NULL);
+    g_hash_table_foreach(g_forwarding_table, (GHFunc)printVIPSocketPair, NULL);
 }
 
 
@@ -87,9 +82,11 @@ void printReadFromWhichVIPTable()
 
 
 
-void sendPacket(char* payload, size_t payload_len, char* vip)
+void sendPacket(char* payload, size_t payload_len, int vip_address)
 {
-   int* socket=g_hash_table_lookup(s_forwarding_table, (gpointer)vip);
+   char* vip = convertVIPInt2String(vip_address);
+
+   int* socket=g_hash_table_lookup(g_forwarding_table, (gpointer)vip);
    struct sockaddr_in* dst_addr=g_hash_table_lookup(g_send_socket_addr_lookup, (gpointer)socket);
    char ip_str[INET_ADDRSTRLEN];
    inet_ntop(AF_INET, &(dst_addr->sin_addr), ip_str, INET_ADDRSTRLEN);
@@ -128,7 +125,7 @@ void sendPacket(char* payload, size_t payload_len, char* vip)
 
 
 
-void receivePacket(int socket)
+void receivePacket(char* payload, size_t* payload_len, int max_capacity, int socket)
 {
     // Read up to 64k bytes in 1400 byte increments
 }
@@ -142,7 +139,7 @@ void setupForwardingTableAndSockets(list_t* list)
 {
     node_t* current_node;
     link_t* current_link;
-    s_forwarding_table=g_hash_table_new(g_str_hash, g_str_equal);
+    g_forwarding_table=g_hash_table_new(g_str_hash, g_str_equal);
     g_read_socket_addr_lookup=g_hash_table_new(g_int_hash, g_int_equal);
     g_send_socket_addr_lookup=g_hash_table_new(g_int_hash, g_int_equal);
 
@@ -200,7 +197,7 @@ void setupForwardingTableAndSockets(list_t* list)
         int* send_socket_p=g_malloc(sizeof(int));
         *send_socket_p=send_socket;
         g_hash_table_insert(g_send_socket_addr_lookup, (gpointer)send_socket_p, (gpointer)&remote_addr);
-        g_hash_table_insert(s_forwarding_table, (gpointer)remote_vip_str, (gpointer)send_socket_p);
+        g_hash_table_insert(g_forwarding_table, (gpointer)remote_vip_str, (gpointer)send_socket_p);
 
 
     }//end of for loop for looping linkedlist
