@@ -21,8 +21,10 @@
 
 static GHashTable* s_forwarding_table;//key is vip, value is socket
 static GHashTable* g_send_socket_addr_lookup;//send approach 2, not using bind, key is socket, value is real ip 
-static GHashTable* g_read_socket_addr_lookup;//key is socket, valie is vip
+
 static pthread_mutex_t g_forwarding_table_mutex = PTHREAD_MUTEX_INITIALIZER; // do we need this?
+
+GHashTable* g_read_socket_addr_lookup;//key is socket, valie is vip
 
 
 char* convertVIPInt2String(int addr_num)
