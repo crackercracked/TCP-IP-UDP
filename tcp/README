@@ -1,0 +1,34 @@
+TCP DESIGN EXPLANATION
+
+1. We let use the following data structure for each socket to corporate TCP protocol: (tcp_layer.h)
+   -- standard TCB
+   -- a state identified by the state diagram
+   -- a blocking queue to queue all packets received and to be processed
+   -- a circular buffer serving as sending sliding window
+   -- a circular buffer serving as receiving sliding window
+   -- a circular buffer to store in-ordered data received so far(aka good for v_read())
+   
+
+2. To ensure we are following the state diagram precisely, we implemented a state machine section (state_machine.h/c)
+   The state machine support two functionality:
+   -- checking validation of the current state, for which we call when we are about to perform an action causes state change
+   -- change the state after performing action, for which we call when we finished an action causes state change
+   
+
+
+3. We designed our sliding window as follows: (sliding_window.h/c)
+   Each socket(in CONNECTION state) is supported by its own two thread, sending thread and receiving thread.
+   Sending thread is responsable of:
+      -- sending new TCP data
+      -- retransmitting unacked data
+      -- update send sliding window accordingly
+
+   Receiving thread is repsonsable of:
+      -- receiving TCP data and send ACK of data in response
+      -- receiving FIN and send ACK of FIN in response
+      -- update receiving sliding window accordingly
+
+   Here is a more descriptive illustration of the workflow of TCP sending/receiving of our program:
+   Everytime a socket reaches an ESTABLISH state, another two threads is created for it and they run forever until the socket is invalidated by shutdown/close. When sender call v_write, the host (in the main thread) put data need to be sent to sending circular buffer until full. This change is sending circular buffer will make sending thread notice that there are data need to be sent, and thus send the data. At the receiver side, the receiving thread will put all data received in the receiving circular buffer, and move all data in order to another circular buffer from which v_read() will read from, and send ACK accordingly. Then the receiving thread of the sender will get the ACK and changing sending circular buffer. The above process is repeated until all data is sent/received
+      
+
